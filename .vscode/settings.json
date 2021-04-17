@@ -1,5 +1,5 @@
 {
-    "python.pythonPath": "/home/elierotenberg/gh/remembrall-pi/.venv/bin/python",
+    "python.pythonPath": ".venv/bin/python",
     "python.analysis.typeCheckingMode": "strict",
     "python.formatting.provider": "black",
     "python.formatting.autopep8Path": "black",
