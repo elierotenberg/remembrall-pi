@@ -57,8 +57,8 @@ class Controller:
         self._mutex = Lock()
 
     def _on_push_button(self):
-        self._rgb_led.off()
         self._lock("_on_push_button")
+        self._rgb_led.off()
         try:
             for event in self._ongoing_events:
                 self._dismissed_events.append(event)
@@ -145,8 +145,6 @@ class Controller:
                     )
                     color = get_event_color(most_recent_ongoing_event)
                     self._rgb_led.blink(on_color=color, background=True)  # type: ignore
-                else:
-                    self._rgb_led.off()
             finally:
                 self._unlock("run_forever")
 
