@@ -1,0 +1,15 @@
+[google]
+oauth_flask_secret_key = ""
+oauth_secrets = "env/oauth-secrets.sample.json"
+tokens = "env/tokens.sample.json"
+calendar_id = ""
+
+[device]
+pigpio_addr = "localhost"
+red_pin = 0
+green_pin = 0
+blue_pin = 0
+button_pin = 0
+
+[controller]
+poll_interval_minutes = 5

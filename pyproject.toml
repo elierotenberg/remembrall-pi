@@ -9,6 +9,13 @@ python = "^3.8"
 gpiozero = "^1.6.2"
 pigpio = "^1.78"
 "RPi.GPIO" = "^0.7.0"
+pydantic = "^1.8.1"
+toml = "^0.10.2"
+google-api-python-client = "^2.2.0"
+google-auth-httplib2 = "^0.1.0"
+google-auth-oauthlib = "^0.4.4"
+Flask = "^1.1.2"
+requests = "^2.25.1"
 
 [tool.poetry.dev-dependencies]
 black = "^20.8b1"
