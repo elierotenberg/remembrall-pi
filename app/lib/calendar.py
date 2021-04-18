@@ -21,7 +21,7 @@ class CalendarEventEnd(BaseModel):
 
 
 class CalendarEvent(BaseModel):
-    id: str
+    etag: str
     start: CalendarEventStart
     end: CalendarEventEnd
     summary: str
