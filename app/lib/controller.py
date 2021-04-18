@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import logging
 from time import sleep
 from typing import List
 from os import getcwd, path
@@ -7,6 +8,7 @@ from gpiozero.output_devices import RGBLED  # type: ignore
 from gpiozero.pins.pigpio import PiGPIOFactory  # type: ignore
 from app.lib.config import Config
 from app.lib.calendar import Calendar, CalendarEvent
+from threading import Lock
 
 
 def get_event_color(calendar_event: CalendarEvent):
@@ -20,80 +22,133 @@ def get_event_color(calendar_event: CalendarEvent):
 
 
 class Controller:
-    rgb_led: RGBLED
-    button: Button
-    calendar: Calendar
-    poll_interval: timedelta
-    upcoming_events: List[CalendarEvent]
-    ongoing_events: List[CalendarEvent]
-    dismissed_events: List[CalendarEvent]
+    _rgb_led: RGBLED
+    _button: Button
+    _calendar: Calendar
+    _sleep_interval_seconds: int
+    _poll_interval: timedelta
+    _upcoming_events: List[CalendarEvent]
+    _ongoing_events: List[CalendarEvent]
+    _dismissed_events: List[CalendarEvent]
+    _mutex: Lock
 
     def __init__(self, config: Config):
         pin_factory = PiGPIOFactory(config.device.pigpio_addr)
-        self.rgb_led = RGBLED(
+        self._rgb_led = RGBLED(
             red=config.device.red_pin,
             green=config.device.green_pin,
             blue=config.device.blue_pin,
             pin_factory=pin_factory,
         )
-        self.button = Button(config.device.button_pin, pin_factory=pin_factory)
-        self.calendar = Calendar(
+        self._button = Button(config.device.button_pin, pin_factory=pin_factory)
+        self._calendar = Calendar(
             tokens_file=path.join(getcwd(), config.google.tokens),
             calendar_id=config.google.calendar_id,
         )
-        self.upcoming_events = []
-        self.ongoing_events = []
-        self.dismissed_events = []
-        self.poll_interval = timedelta(minutes=config.controller.poll_interval_minutes)
+        self._upcoming_events = []
+        self._ongoing_events = []
+        self._dismissed_events = []
+        self._poll_interval = timedelta(
+            minutes=config.controller.poll_interval_minutes,
+            seconds=config.controller.poll_interval_seconds,
+        )
         self.last_fetched = datetime.utcfromtimestamp(0)
+        self._sleep_interval_seconds = config.controller.sleep_interval_seconds
+        self._mutex = Lock()
 
     def _on_push_button(self):
-        self.rgb_led.off()
-        for event in self.ongoing_events:
-            self.dismissed_events.append(event)
-        self.ongoing_events.clear()
+        self._rgb_led.off()
+        self._lock("_on_push_button")
+        try:
+            for event in self._ongoing_events:
+                self._dismissed_events.append(event)
+            self._ongoing_events.clear()
+        finally:
+            self._unlock("_on_push_button")
 
     def _has_event(self, event: CalendarEvent):
-        for upcoming_event in self.upcoming_events:
+        logging.debug(f"has_event? {event.id, event.summary}")
+        for upcoming_event in self._upcoming_events:
             if upcoming_event.id == event.id:
+                logging.debug("has upcoming event")
                 return True
-        for ongoing_event in self.ongoing_events:
+        for ongoing_event in self._ongoing_events:
             if ongoing_event.id == event.id:
+                logging.debug("has ongoing event")
                 return True
-        for dismissed_event in self.dismissed_events:
+        for dismissed_event in self._dismissed_events:
             if dismissed_event.id == event.id:
+                logging.debug("has dismissed event")
                 return True
+        logging.debug("has not event")
         return False
 
-    def run_forever(self):
-        self.button.when_activated = self._on_push_button
-        while True:
-            print("tick")
-            if self.last_fetched.utcnow() > self.last_fetched + self.poll_interval:
-                print("fetch")
-                upcoming_events = self.calendar.fetch_upcoming_events()
-                self.last_fetched = datetime.utcnow()
-                for upcoming_event in upcoming_events:
-                    if not self._has_event(upcoming_event):
-                        print(f"push event {upcoming_event.summary}")
-                        self.upcoming_events.append(upcoming_event)
-            next_upcoming_events: List[CalendarEvent] = []
-            next_ongoing_events: List[CalendarEvent] = []
-            now = datetime.fromisoformat(datetime.utcnow().isoformat() + "+00:00")
-            for upcoming_event in self.upcoming_events:
-                event_start = datetime.fromisoformat(upcoming_event.start.dateTime)
-                if event_start < now:
-                    print(f"ongoing event {upcoming_event.summary}")
-                    next_ongoing_events.append(upcoming_event)
-                else:
-                    next_upcoming_events.append(upcoming_event)
-            self.upcoming_events = next_upcoming_events
-            self.ongoing_events = next_ongoing_events
-            if len(self.ongoing_events) > 0:
-                latest_event = self.ongoing_events[len(self.ongoing_events) - 1]
-                print("first_ongoing_event", latest_event.summary)
-                color = get_event_color(latest_event)
-                self.rgb_led.color = color
+    def _find_most_recent_ongoing_event(self):
+        most_recent_ongoing_event = None
+        for this_ongoing_event in self._ongoing_events:
+            if most_recent_ongoing_event is None:
+                most_recent_ongoing_event = this_ongoing_event
+            else:
+                most_recent_ongoing_event_start = datetime.fromisoformat(
+                    most_recent_ongoing_event.start.dateTime
+                )
+                this_ongoing_event_start = datetime.fromisoformat(
+                    this_ongoing_event.start.dateTime
+                )
+                if this_ongoing_event_start > most_recent_ongoing_event_start:
+                    most_recent_ongoing_event = this_ongoing_event
+        return most_recent_ongoing_event
 
-            print("sleeping")
-            sleep(5)
+    def _lock(self, label: str):
+        logging.debug(f"LOCK {label}")
+        self._mutex.acquire()
+
+    def _unlock(self, label: str):
+        logging.debug(f"UNLOCK {label}")
+        self._mutex.release()
+
+    def run_forever(self):
+        self._button.when_activated = self._on_push_button
+        self._rgb_led.off()
+        while True:
+            logging.debug("tick")
+            if self.last_fetched.utcnow() > self.last_fetched + self._poll_interval:
+                logging.info("fetch")
+                upcoming_events = self._calendar.fetch_upcoming_events()
+                self.last_fetched = datetime.utcnow()
+                self._lock("run_forever:fetch")
+                try:
+                    for upcoming_event in upcoming_events:
+                        if not self._has_event(upcoming_event):
+                            logging.info(f"push event {upcoming_event.summary}")
+                            self._upcoming_events.append(upcoming_event)
+                finally:
+                    self._unlock("run_forever:fetch")
+            self._lock("run_forever")
+            try:
+                next_upcoming_events: List[CalendarEvent] = []
+                next_ongoing_events: List[CalendarEvent] = []
+                now = datetime.fromisoformat(datetime.utcnow().isoformat() + "+00:00")
+                for upcoming_event in self._upcoming_events:
+                    event_start = datetime.fromisoformat(upcoming_event.start.dateTime)
+                    if event_start < now:
+                        logging.info(f"ongoing event {upcoming_event.summary}")
+                        next_ongoing_events.append(upcoming_event)
+                    else:
+                        next_upcoming_events.append(upcoming_event)
+                self._upcoming_events = next_upcoming_events
+                self._ongoing_events = next_ongoing_events
+                most_recent_ongoing_event = self._find_most_recent_ongoing_event()
+                if most_recent_ongoing_event is not None:
+                    logging.info(
+                        f"most_recent_ongoing_event {most_recent_ongoing_event.summary}"
+                    )
+                    color = get_event_color(most_recent_ongoing_event)
+                    self._rgb_led.blink(on_color=color, background=True)  # type: ignore
+                else:
+                    self._rgb_led.off()
+            finally:
+                self._unlock("run_forever")
+
+            logging.debug("sleeping")
+            sleep(self._sleep_interval_seconds)

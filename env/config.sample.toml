@@ -1,3 +1,5 @@
+debug = true
+
 [google]
 oauth_flask_secret_key = ""
 oauth_secrets = "env/oauth-secrets.sample.json"
@@ -12,4 +14,6 @@ blue_pin = 0
 button_pin = 0
 
 [controller]
-poll_interval_minutes = 5
+sleep_interval_seconds = 5
+poll_interval_seconds = 0
+poll_interval_minutes = 1

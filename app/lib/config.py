@@ -19,6 +19,8 @@ class DeviceConfig(BaseModel):
 
 
 class ControllerConfig(BaseModel):
+    sleep_interval_seconds: int
+    poll_interval_seconds: int
     poll_interval_minutes: int
 
 
@@ -26,6 +28,7 @@ class Config(BaseModel):
     google: GoogleConfig
     device: DeviceConfig
     controller: ControllerConfig
+    debug: bool
 
 
 def read_from_env():
