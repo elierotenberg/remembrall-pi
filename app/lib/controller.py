@@ -126,6 +126,7 @@ class Controller:
                         self._upcoming_events.append(upcoming_event)
             next_upcoming_events: List[CalendarEvent] = []
             now = datetime.fromisoformat(datetime.utcnow().isoformat() + "+00:00")
+            prev_most_recent_ongoing_event = self._find_most_recent_ongoing_event()
             for upcoming_event in self._upcoming_events:
                 event_start = datetime.fromisoformat(upcoming_event.start.dateTime)
                 if event_start < now:
@@ -135,7 +136,13 @@ class Controller:
                     next_upcoming_events.append(upcoming_event)
             self._upcoming_events = next_upcoming_events
             most_recent_ongoing_event = self._find_most_recent_ongoing_event()
-            if most_recent_ongoing_event is not None:
+            if most_recent_ongoing_event is not None and (
+                prev_most_recent_ongoing_event is None
+                or (
+                    prev_most_recent_ongoing_event.etag
+                    != most_recent_ongoing_event.etag
+                )
+            ):
                 logging.info(
                     f"most_recent_ongoing_event {most_recent_ongoing_event.summary}"
                 )
