@@ -16,6 +16,7 @@ google-auth-httplib2 = "^0.1.0"
 google-auth-oauthlib = "^0.4.4"
 Flask = "^1.1.2"
 requests = "^2.25.1"
+lifxlan = "^1.2.6"
 
 [tool.poetry.dev-dependencies]
 black = "^20.8b1"

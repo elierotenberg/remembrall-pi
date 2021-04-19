@@ -6,14 +6,20 @@ oauth_secrets = "env/oauth-secrets.sample.json"
 tokens = "env/tokens.sample.json"
 calendar_id = ""
 
-[device]
+[raspberry]
 pigpio_addr = "localhost"
 red_pin = 0
 green_pin = 0
 blue_pin = 0
 button_pin = 0
+status_pin = 0
+
+[lifx]
+mac_address = ""
+ip_address = ""
 
 [controller]
+output_device = "lifx" # or "gpio_rgb_led"
 sleep_interval_seconds = 5
 poll_interval_seconds = 0
 poll_interval_minutes = 1

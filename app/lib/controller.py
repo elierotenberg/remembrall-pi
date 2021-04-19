@@ -1,27 +1,23 @@
+from app.lib.lifx_output_device import LifxOutputDevice
+from app.lib.color import from_event_summary
+from app.lib.gpio_rgb_led_output_device import GpioRgbLedOutputDevice
+from app.lib.calendar import Calendar, CalendarEvent
+from app.lib.config import Config
+from app.lib.output_device import OutputDevice
 from datetime import datetime, timedelta
-import logging
+from gpiozero.output_devices import LED  # type: ignore
+from gpiozero.input_devices import Button  # type: ignore
+from gpiozero.pins.pigpio import PiGPIOFactory  # type: ignore
+from os import getcwd, path
 from time import sleep
 from typing import List
-from os import getcwd, path
-from gpiozero.input_devices import Button  # type: ignore
-from gpiozero.output_devices import RGBLED  # type: ignore
-from gpiozero.pins.pigpio import PiGPIOFactory  # type: ignore
-from app.lib.config import Config
-from app.lib.calendar import Calendar, CalendarEvent
-
-
-def get_event_color(calendar_event: CalendarEvent):
-    if calendar_event.summary.startswith("R"):
-        return (1, 0, 0)
-    if calendar_event.summary.startswith("G"):
-        return (0, 1, 0)
-    if calendar_event.summary.startswith("B"):
-        return (0, 0, 1)
-    return (1, 1, 1)
+import logging
 
 
 class Controller:
-    _rgb_led: RGBLED
+    _output: OutputDevice
+    _status_led: LED
+    _status_led_state: bool
     _button: Button
     _calendar: Calendar
     _sleep_interval_seconds: int
@@ -32,14 +28,22 @@ class Controller:
     _button_pushed: bool
 
     def __init__(self, config: Config):
-        pin_factory = PiGPIOFactory(config.device.pigpio_addr)
-        self._rgb_led = RGBLED(
-            red=config.device.red_pin,
-            green=config.device.green_pin,
-            blue=config.device.blue_pin,
-            pin_factory=pin_factory,
-        )
-        self._button = Button(config.device.button_pin, pin_factory=pin_factory)
+        pin_factory = PiGPIOFactory(config.raspberry.pigpio_addr)
+        if config.controller.output_device == "gpio_rgb_led":
+            self._output = GpioRgbLedOutputDevice(
+                red_pin=config.raspberry.red_pin,
+                green_pin=config.raspberry.green_pin,
+                blue_pin=config.raspberry.blue_pin,
+                pin_factory=pin_factory,
+            )
+        elif config.controller.output_device == "lifx":
+            self._output = LifxOutputDevice(
+                mac_address=config.lifx.mac_address, ip_address=config.lifx.ip_address
+            )
+        else:
+            raise TypeError("output_device should be 'gpio_rgb_led' or 'lifx'")
+        self._button = Button(config.raspberry.button_pin, pin_factory=pin_factory)
+        self._status_led = LED(pin=config.raspberry.status_pin, pin_factory=pin_factory)
         self._calendar = Calendar(
             tokens_file=path.join(getcwd(), config.google.tokens),
             calendar_id=config.google.calendar_id,
@@ -93,14 +97,22 @@ class Controller:
 
     def run_forever(self):
         self._button.when_activated = self._on_push_button
-        self._rgb_led.off()
+        self._output.off()
+        self._status_led.off()
+        self._status_led_state = False
         while True:
+            if self._status_led_state:
+                self._status_led.off()
+                self._status_led_state = False
+            else:
+                self._status_led.on()
+                self._status_led_state = True
             logging.debug(
                 f"tick (upcoming: {len(self._upcoming_events)}, ongoing: {len(self._ongoing_events)}, dismissed: {len(self._dismissed_events)})"
             )
             if self._button_pushed:
                 self._button_pushed = False
-                self._rgb_led.off()
+                self._output.off()
                 for event in self._ongoing_events:
                     self._dismissed_events.append(event)
                 self._ongoing_events.clear()
@@ -127,8 +139,8 @@ class Controller:
                 logging.info(
                     f"most_recent_ongoing_event {most_recent_ongoing_event.summary}"
                 )
-                color = get_event_color(most_recent_ongoing_event)
-                self._rgb_led.blink(on_color=color, background=True)  # type: ignore
+                color = from_event_summary(most_recent_ongoing_event.summary)
+                self._output.on(color)
 
             logging.debug("sleeping")
             sleep(self._sleep_interval_seconds)
