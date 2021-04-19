@@ -29,5 +29,8 @@ class RGBColor(BaseModel):
         return (self.red, self.green, self.blue)
 
     def to_lifx_colors(self):
-        h, s, v = colorsys.rgb_to_hsv(self.red, self.green, self.blue)
-        return ((h * 65535), (s * 65535), (v * 65535), 3500)
+        h, s, v = [
+            color * 65535
+            for color in colorsys.rgb_to_hsv(self.red, self.green, self.blue)
+        ]
+        return (h, s, v, 3500)

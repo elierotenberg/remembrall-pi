@@ -139,7 +139,7 @@ class Controller:
                 logging.info(
                     f"most_recent_ongoing_event {most_recent_ongoing_event.summary}"
                 )
-                color = from_event_summary(most_recent_ongoing_event.summary)
+                color = from_event_summary(most_recent_ongoing_event.summary.strip())
                 self._output.on(color)
 
             logging.debug("sleeping")
