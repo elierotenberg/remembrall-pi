@@ -30,4 +30,4 @@ class RGBColor(BaseModel):
 
     def to_lifx_colors(self):
         h, s, v = colorsys.rgb_to_hsv(self.red, self.green, self.blue)
-        return ((h * 65536 - 1), (s * 65536 - 1), (v * 65536 - 1), 3500)
+        return ((h * 65535), (s * 65535), (v * 65535), 3500)

@@ -1,4 +1,3 @@
-from typing import Literal, Union
 from os import environ, path, getcwd
 from pydantic import BaseModel
 from toml import load
@@ -26,7 +25,7 @@ class LifxConfig(BaseModel):
 
 
 class ControllerConfig(BaseModel):
-    output_device: Union[Literal["lifx"], Literal["gpio_rgb_led"]]
+    output_device: str
     sleep_interval_seconds: int
     poll_interval_seconds: int
     poll_interval_minutes: int
