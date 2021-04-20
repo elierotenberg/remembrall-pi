@@ -1,10 +1,8 @@
 import flask
 from os import getcwd, path, environ
-from google.auth import credentials
 from google_auth_oauthlib.flow import Flow
 from app.lib.config import read_from_env
 from app.lib.calendar import SCOPES
-from flask import Flask
 import webbrowser
 from sys import exit
 

@@ -20,7 +20,8 @@ ip_address = ""
 
 [controller]
 use_lifx_output = true
-use_rgb_led_output = true
+use_gpio_rgb_led_output = true
+use_gpio_button_input = true
 sleep_interval_seconds = 5
 poll_interval_seconds = 0
 poll_interval_minutes = 1

@@ -1,3 +1,5 @@
+from app.lib.gpio_button_input_device import GpioButtonInputDevice
+from app.lib.input_device import InputDevice
 from app.lib.lifx_output_device import LifxOutputDevice
 from app.lib.color import RGBColor, from_event_summary
 from app.lib.gpio_rgb_led_output_device import GpioRgbLedOutputDevice
@@ -16,9 +18,9 @@ import logging
 
 class Controller:
     _outputs: List[OutputDevice]
+    _inputs: List[InputDevice]
     _status_led: LED
     _status_led_state: bool
-    _button: Button
     _calendar: Calendar
     _sleep_interval_seconds: int
     _poll_interval: timedelta
@@ -26,12 +28,12 @@ class Controller:
     _upcoming_events: List[CalendarEvent]
     _ongoing_events: List[CalendarEvent]
     _dismissed_events: List[CalendarEvent]
-    _button_pushed: bool
+    _dismiss_pending: bool
 
     def __init__(self, config: Config):
         pin_factory = PiGPIOFactory(config.raspberry.pigpio_addr)
         self._outputs = []
-        if config.controller.use_rgb_led_output:
+        if config.controller.use_gpio_rgb_led_output:
             self._outputs.append(
                 GpioRgbLedOutputDevice(
                     red_pin=config.raspberry.red_pin,
@@ -47,7 +49,13 @@ class Controller:
                     ip_address=config.lifx.ip_address,
                 )
             )
-        self._button = Button(config.raspberry.button_pin, pin_factory=pin_factory)
+        self._inputs = []
+        if config.controller.use_gpio_button_input:
+            self._inputs.append(
+                GpioButtonInputDevice(
+                    pin_factory=pin_factory, pin=config.raspberry.button_pin
+                )
+            )
         self._status_led = LED(pin=config.raspberry.status_pin, pin_factory=pin_factory)
         self._calendar = Calendar(
             tokens_file=path.join(getcwd(), config.google.tokens),
@@ -63,10 +71,10 @@ class Controller:
         self._default_color = config.controller.default_color
         self.last_fetched = datetime.utcfromtimestamp(0)
         self._sleep_interval_seconds = config.controller.sleep_interval_seconds
-        self._button_pushed = False
+        self._dismiss_pending = False
 
-    def _on_push_button(self):
-        self._button_pushed = True
+    def _set_dismiss_pending(self):
+        self._dismiss_pending = True
 
     def _has_event(self, event: CalendarEvent):
         logging.debug(f"has_event? {event.etag, event.summary}")
@@ -102,7 +110,8 @@ class Controller:
         return most_recent_ongoing_event
 
     def run_forever(self):
-        self._button.when_activated = self._on_push_button
+        for input in self._inputs:
+            input.on_dismiss(self._set_dismiss_pending)
         for output in self._outputs:
             output.off()
         self._status_led.off()
@@ -117,8 +126,8 @@ class Controller:
             logging.debug(
                 f"tick (upcoming: {len(self._upcoming_events)}, ongoing: {len(self._ongoing_events)}, dismissed: {len(self._dismissed_events)})"
             )
-            if self._button_pushed:
-                self._button_pushed = False
+            if self._dismiss_pending:
+                self._dismiss_pending = False
                 for output in self._outputs:
                     output.off()
                 for event in self._ongoing_events:

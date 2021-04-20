@@ -27,7 +27,8 @@ class LifxConfig(BaseModel):
 
 class ControllerConfig(BaseModel):
     use_lifx_output: bool
-    use_rgb_led_output: bool
+    use_gpio_rgb_led_output: bool
+    use_gpio_button_input: bool
     default_color: RGBColor
     sleep_interval_seconds: int
     poll_interval_seconds: int
