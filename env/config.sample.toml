@@ -24,3 +24,4 @@ use_rgb_led_output = true
 sleep_interval_seconds = 5
 poll_interval_seconds = 0
 poll_interval_minutes = 1
+default_color = { red = 1, green = 0, blue = 0 }

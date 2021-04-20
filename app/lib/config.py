@@ -1,3 +1,4 @@
+from app.lib.color import RGBColor
 from os import environ, path, getcwd
 from pydantic import BaseModel
 from toml import load
@@ -27,6 +28,7 @@ class LifxConfig(BaseModel):
 class ControllerConfig(BaseModel):
     use_lifx_output: bool
     use_rgb_led_output: bool
+    default_color: RGBColor
     sleep_interval_seconds: int
     poll_interval_seconds: int
     poll_interval_minutes: int

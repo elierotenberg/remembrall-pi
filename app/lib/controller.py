@@ -1,5 +1,5 @@
 from app.lib.lifx_output_device import LifxOutputDevice
-from app.lib.color import from_event_summary
+from app.lib.color import RGBColor, from_event_summary
 from app.lib.gpio_rgb_led_output_device import GpioRgbLedOutputDevice
 from app.lib.calendar import Calendar, CalendarEvent
 from app.lib.config import Config
@@ -22,6 +22,7 @@ class Controller:
     _calendar: Calendar
     _sleep_interval_seconds: int
     _poll_interval: timedelta
+    _default_color: RGBColor
     _upcoming_events: List[CalendarEvent]
     _ongoing_events: List[CalendarEvent]
     _dismissed_events: List[CalendarEvent]
@@ -59,6 +60,7 @@ class Controller:
             minutes=config.controller.poll_interval_minutes,
             seconds=config.controller.poll_interval_seconds,
         )
+        self._default_color = config.controller.default_color
         self.last_fetched = datetime.utcfromtimestamp(0)
         self._sleep_interval_seconds = config.controller.sleep_interval_seconds
         self._button_pushed = False
@@ -152,7 +154,9 @@ class Controller:
                 logging.info(
                     f"most_recent_ongoing_event {most_recent_ongoing_event.summary}"
                 )
-                color = from_event_summary(most_recent_ongoing_event.summary.strip())
+                color = from_event_summary(
+                    most_recent_ongoing_event.summary.strip(), self._default_color
+                )
                 for output in self._outputs:
                     output.on(color)
 

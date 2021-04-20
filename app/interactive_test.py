@@ -1,4 +1,4 @@
-from app.lib.color import RGBColor
+from app.lib.lifx_output_device import LifxOutputDevice
 from gpiozero.input_devices import Button  # type: ignore
 from lifxlan.light import Light  # type: ignore
 from app.lib.config import read_from_env
@@ -24,15 +24,15 @@ if __name__ == "__main__":
             print(f"Button {pin}")
             button = Button(pin_factory=pin_factory, pin=pin)
             print("press button to continue...")
-            button.wait_for_active()
+            button.wait_for_active()  # type: ignore
             button.close()
         if kind == "x":
-            light = Light(
-                mac_addr=config.lifx.mac_address, ip_addr=config.lifx.ip_address
+            lifx = LifxOutputDevice(
+                mac_address=config.lifx.mac_address,
+                ip_address=config.lifx.ip_address,
             )
             print(f"lifx {config.lifx.mac_address}")
             input("press key to power on...")
-            light.set_power("on", rapid=True)
-            light.set_color(color=RGBColor(red=1, blue=0, green=0).to_lifx_colors())
+            lifx.on(config.controller.default_color)
             input("press key to power off...")
-            light.set_power("off", rapid=True)
+            lifx.off()
