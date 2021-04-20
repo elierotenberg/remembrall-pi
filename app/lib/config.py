@@ -25,7 +25,8 @@ class LifxConfig(BaseModel):
 
 
 class ControllerConfig(BaseModel):
-    output_device: str
+    use_lifx_output: bool
+    use_rgb_led_output: bool
     sleep_interval_seconds: int
     poll_interval_seconds: int
     poll_interval_minutes: int

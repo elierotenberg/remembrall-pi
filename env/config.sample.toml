@@ -19,7 +19,8 @@ mac_address = ""
 ip_address = ""
 
 [controller]
-output_device = "lifx" # or "gpio_rgb_led"
+use_lifx_output = true
+use_rgb_led_output = true
 sleep_interval_seconds = 5
 poll_interval_seconds = 0
 poll_interval_minutes = 1

@@ -15,7 +15,7 @@ import logging
 
 
 class Controller:
-    _output: OutputDevice
+    _outputs: List[OutputDevice]
     _status_led: LED
     _status_led_state: bool
     _button: Button
@@ -29,19 +29,23 @@ class Controller:
 
     def __init__(self, config: Config):
         pin_factory = PiGPIOFactory(config.raspberry.pigpio_addr)
-        if config.controller.output_device == "gpio_rgb_led":
-            self._output = GpioRgbLedOutputDevice(
-                red_pin=config.raspberry.red_pin,
-                green_pin=config.raspberry.green_pin,
-                blue_pin=config.raspberry.blue_pin,
-                pin_factory=pin_factory,
+        self._outputs = []
+        if config.controller.use_rgb_led_output:
+            self._outputs.append(
+                GpioRgbLedOutputDevice(
+                    red_pin=config.raspberry.red_pin,
+                    green_pin=config.raspberry.green_pin,
+                    blue_pin=config.raspberry.blue_pin,
+                    pin_factory=pin_factory,
+                )
             )
-        elif config.controller.output_device == "lifx":
-            self._output = LifxOutputDevice(
-                mac_address=config.lifx.mac_address, ip_address=config.lifx.ip_address
+        if config.controller.use_lifx_output:
+            self._outputs.append(
+                LifxOutputDevice(
+                    mac_address=config.lifx.mac_address,
+                    ip_address=config.lifx.ip_address,
+                )
             )
-        else:
-            raise TypeError("output_device should be 'gpio_rgb_led' or 'lifx'")
         self._button = Button(config.raspberry.button_pin, pin_factory=pin_factory)
         self._status_led = LED(pin=config.raspberry.status_pin, pin_factory=pin_factory)
         self._calendar = Calendar(
@@ -97,7 +101,8 @@ class Controller:
 
     def run_forever(self):
         self._button.when_activated = self._on_push_button
-        self._output.off()
+        for output in self._outputs:
+            output.off()
         self._status_led.off()
         self._status_led_state = False
         while True:
@@ -112,7 +117,8 @@ class Controller:
             )
             if self._button_pushed:
                 self._button_pushed = False
-                self._output.off()
+                for output in self._outputs:
+                    output.off()
                 for event in self._ongoing_events:
                     self._dismissed_events.append(event)
                 self._ongoing_events.clear()
@@ -147,7 +153,8 @@ class Controller:
                     f"most_recent_ongoing_event {most_recent_ongoing_event.summary}"
                 )
                 color = from_event_summary(most_recent_ongoing_event.summary.strip())
-                self._output.on(color)
+                for output in self._outputs:
+                    output.on(color)
 
             logging.debug("sleeping")
             sleep(self._sleep_interval_seconds)
