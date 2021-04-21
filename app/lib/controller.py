@@ -1,3 +1,4 @@
+import sys
 from app.lib.gpio_button_input_device import GpioButtonInputDevice
 from app.lib.input_device import InputDevice
 from app.lib.lifx_output_device import LifxOutputDevice
@@ -129,7 +130,11 @@ class Controller:
             if self._dismiss_pending:
                 self._dismiss_pending = False
                 for output in self._outputs:
-                    output.off()
+                    try:
+                        output.off()
+                    except:
+                        logging.error("Error setting output to 'off'")
+                        logging.error(sys.exc_info()[0])
                 for event in self._ongoing_events:
                     self._dismissed_events.append(event)
                 self._ongoing_events.clear()
@@ -167,7 +172,11 @@ class Controller:
                     most_recent_ongoing_event.summary.strip(), self._default_color
                 )
                 for output in self._outputs:
-                    output.on(color)
+                    try:
+                        output.on(color)
+                    except:
+                        logging.error("Error setting output to 'on'")
+                        logging.error(sys.exc_info()[0])
 
             logging.debug("sleeping")
             sleep(self._sleep_interval_seconds)

@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
-from typing import Union
+import logging
+import sys
+from typing import List, Union
 from google.oauth2.credentials import Credentials  # type: ignore
 from google.auth.transport.requests import Request  # type: ignore
 from googleapiclient.discovery import build  # type: ignore
@@ -53,20 +55,25 @@ class Calendar:
             raise TypeError("service is not initialized")
         return self.service
 
-    def fetch_upcoming_events(self):
+    def fetch_upcoming_events(self) -> List[CalendarEvent]:
         now = datetime.utcnow()
         time_min = (now - timedelta(hours=1)).isoformat() + "Z"
         time_max = (now + timedelta(hours=1)).isoformat() + "Z"
-        events_result = (  # type: ignore
-            self._get_service()  # type: ignore
-            .events()  # type: ignore
-            .list(
-                calendarId=self.calendar_id,
-                singleEvents=True,
-                timeMin=time_min,
-                timeMax=time_max,
+        try:
+            events_result = (  # type: ignore
+                self._get_service()  # type: ignore
+                .events()  # type: ignore
+                .list(
+                    calendarId=self.calendar_id,
+                    singleEvents=True,
+                    timeMin=time_min,
+                    timeMax=time_max,
+                )
+                .execute()
             )
-            .execute()
-        )
-        events = events_result.get("items", [])  # type: ignore
-        return [CalendarEvent(**event) for event in events]  # type: ignore
+            events = events_result.get("items", [])  # type: ignore
+            return [CalendarEvent(**event) for event in events]  # type: ignore
+        except:
+            logging.error("Error fetching upcoming events")
+            logging.error(sys.exc_info()[0])
+            return []
